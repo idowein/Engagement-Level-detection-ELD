@@ -13,10 +13,9 @@ def model_trainig_and_evaluation (daisee_path, MWDataset_path, features_columns,
     model.fit(train_set[features_columns], train_set["EngagementLevel"])
 
     # Predictions
-    train_set['PredictedEngagementLevel'] = model.predict(train_set[features_columns])
     val_set['PredictedEngagementLevel'] = model.predict(val_set[features_columns])
 
-    # Metrics for train set
+    # Metrics for val set
     print('===========================================================================\nValidation Metrics:')
     # Metrics for validation set
     print(f"F1: {f1_score(val_set[label_column], val_set['PredictedEngagementLevel'])}")
