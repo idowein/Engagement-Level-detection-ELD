@@ -332,8 +332,8 @@ def calculate_distance(point1, point2):
 
 if __name__ == "__main__":
     # Set the input directory and output CSV path
-    input_directory = r"C:\Users\idowe\Mind wandering research\data collection\Datasets\DAiSEE dataset\DAiSEE\DAiSEE\DataSet\Validation"
-    output_csv_path = r"C:\Users\idowe\Mind wandering research\data collection\Datasets\DAiSEE dataset\DAiSEE\DAiSEE\ELD\ValSegment\Valcounter.csv"
+    input_directory = r"C:\Users\idowe\Datasets\MWDataset\Videos\10SecVids"
+    output_csv_path = r"C:\Users\idowe\Datasets\MWDataset\Labels\media_pipe_labels.csv"
 
     # Ensure output directory exists
     output_dir = os.path.dirname(output_csv_path)

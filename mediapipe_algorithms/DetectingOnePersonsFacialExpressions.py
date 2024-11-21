@@ -387,5 +387,5 @@ def overlay_counters(image, counters):
 
 if __name__ == "__main__":
     # Replace 'path_to_your_video.mp4' with the path to your input video file
-    input_video_path = r"C:\Users\idowe\Mind wandering research\data collection\Datasets\DAiSEE dataset\DAiSEE\DAiSEE\DataSet\Train\110004\1100041006\1100041006.mp4"
+    input_video_path = r"C:\Users\idowe\Datasets\MWDataset\Videos\10SecVids\1978\segment_048.mp4"
     process_video(input_video_path)
