@@ -41,12 +41,46 @@ def table_arranging(input_path, binary_path, base_directory):
         print(f"Warning: {len(missing_clips)} ClipIDs were not found in the directory structure.")
         print(missing_clips[['ClipID']])
 
-    # Save the updated CSV
+    # Save the updated CSV after creating generative Timer
     df.to_csv(binary_path, index=False)
-    print(f"Updated CSV saved to {binary_path}")
+    print(f"Updated CSV after adding Directory name saved to {binary_path}")
 
     # Group by 'Directory' and assign 'Timer' values
     df['GenerativeTimer'] = df.groupby('Directory').cumcount().add(1).mul(10)
+
+    # Save the updated CSV
+    df.to_csv(binary_path, index=False)
+    print(f"Updated CSV after GenerativeTimer saved to {binary_path}")
+
+    # Create a mask where Label == 1
+    mask = df['EngagementLevel'] == 1
+
+    # Identify when a new sequence starts
+    # A new sequence starts when:
+    # - The 'Directory' changes
+    # - or 'Label' changes from 0 to 1
+    # For the first row, we consider it a new sequence
+    new_sequence = df['Directory'].ne(df['Directory'].shift()) | (
+                (df['EngagementLevel'] == 1) & (df['EngagementLevel'].shift().fillna(-1) != 1))
+
+    # Only consider new sequences where Label == 1
+    # So if Label is not 1, set new_sequence to False
+    new_sequence = new_sequence & mask
+
+    # Create group IDs by cumulatively summing the new_sequence flags
+    group_ids = new_sequence.cumsum()
+
+    # Zero out group IDs where Label != 1
+    group_ids = group_ids * mask
+
+    # Calculate the cumulative count within each group
+    df['EngagementCounter'] = df.groupby(group_ids).cumcount()
+
+    # For rows where Label == 1, increment the counter by 1 and multiply by 10
+    df.loc[mask, 'EngagementCounter'] = (df.loc[mask, 'EngagementCounter'] + 1) * 10
+
+    # For rows where Label == 0, set EngagementCounter to 0
+    df.loc[~mask, 'EngagementCounter'] = 0
 
     # Save the updated CSV
     df.to_csv(binary_path, index=False)
