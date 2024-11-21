@@ -2,7 +2,6 @@ import xgboost as xgb
 import pandas as pd
 from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score
 import os
-import re
 
 def table_arranging(input_path, binary_path, base_directory):
     "Creating a new binary CSV that include generative timer and specific timer from the last non-engagement"
@@ -49,16 +48,18 @@ def table_arranging(input_path, binary_path, base_directory):
     # Save the updated CSV
     df.to_csv(binary_path, index=False)
 
-    # Create a mask where Label == 1
-    mask = df['EngagementLevel'] == 1
-
+def dynamic_counter_creation(input_path):
     # Identify when a new sequence starts
     # A new sequence starts when:
     # - The 'Directory' changes
     # - or 'Label' changes from 0 to 1
     # For the first row, we consider it a new sequence
+
+    df = pd.read_csv(input_path) # Read the data into a DataFrame
+    mask = df['PredictedEngagementLevel'] == 1 # Create a mask where Label == 1
+
     new_sequence = df['Directory'].ne(df['Directory'].shift()) | (
-                (df['EngagementLevel'] == 1) & (df['EngagementLevel'].shift().fillna(-1) != 1))
+                (df['PredictedEngagementLevel'] == 1) & (df['PredictedEngagementLevel'].shift().fillna(-1) != 1))
 
     # Only consider new sequences where Label == 1
     # So if Label is not 1, set new_sequence to False
@@ -71,46 +72,53 @@ def table_arranging(input_path, binary_path, base_directory):
     group_ids = group_ids * mask
 
     # Calculate the cumulative count within each group
-    df['EngagementCounter'] = df.groupby(group_ids).cumcount()
+    df['DynamicCounter'] = df.groupby(group_ids).cumcount()
 
     # For rows where Label == 1, increment the counter by 1 and multiply by 10
-    df.loc[mask, 'EngagementCounter'] = (df.loc[mask, 'EngagementCounter'] + 1) * 10
+    df.loc[mask, 'DynamicCounter'] = (df.loc[mask, 'DynamicCounter'] + 1) * 10
 
     # For rows where Label == 0, set EngagementCounter to 0
-    df.loc[~mask, 'EngagementCounter'] = 0
+    df.loc[~mask, 'DynamicCounter'] = 0
 
     # Save the updated CSV
-    df.to_csv(binary_path, index=False)
+    df.to_csv(input_path, index=False)
 
-def model_trainig_and_evaluation (train_path, val_path, test_path):
-    features_columns = ['Blinking', 'Smiling', 'Head Movement', 'GenerativeTimer']
-    label_column = "EngagementLevel"
+def model_trainig_and_evaluation (train_path, val_path, test_path, features_columns, label_column):
 
+    # Data loading
     train_set, val_set, test_set = pd.read_csv(train_path), pd.read_csv(val_path), pd.read_csv(test_path)
 
+    # Model training
     model = xgb.XGBClassifier()
     model.fit(train_set[features_columns], train_set[label_column])
 
-    train_predictions, val_predictions, test_predictions = model.predict(train_set[features_columns]), model.predict(val_set[features_columns]), model.predict(test_set[features_columns])
+    # Predictions
+    train_set['PredictedEngagementLevel'] = model.predict(train_set[features_columns])
+    val_set['PredictedEngagementLevel'] = model.predict(val_set[features_columns])
+    test_set['PredictedEngagementLevel'] = model.predict(test_set[features_columns])
+
+    # Metrics for train set
     print('Train:')
-    print(f"F1: {f1_score(train_set[label_column], train_predictions)}")
-    print(f"Precision: {precision_score(train_set[label_column], train_predictions)}")
-    print(f"Recall: {recall_score(train_set[label_column], train_predictions)}")
-    print(f"Accuracy: {accuracy_score(train_set[label_column], train_predictions)}")
+    print(f"F1: {f1_score(train_set[label_column], train_set['PredictedEngagementLevel'])}")
+    print(f"Precision: {precision_score(train_set[label_column], train_set['PredictedEngagementLevel'])}")
+    print(f"Recall: {recall_score(train_set[label_column], train_set['PredictedEngagementLevel'])}")
+    print(f"Accuracy: {accuracy_score(train_set[label_column], train_set['PredictedEngagementLevel'])}")
 
-    print('===========================================================================')
-    print('val:')
-    print(f"F1: {f1_score(val_set[label_column], val_predictions)}")
-    print(f"Precision: {precision_score(val_set[label_column], val_predictions)}")
-    print(f"Recall: {recall_score(val_set[label_column], val_predictions)}")
-    print(f"Accuracy: {accuracy_score(val_set[label_column], val_predictions)}")
+    print('===========================================================================\nValidation Metrics:')
+    # Metrics for validation set
+    print(f"F1: {f1_score(val_set[label_column], val_set['PredictedEngagementLevel'])}")
+    print(f"Precision: {precision_score(val_set[label_column], val_set['PredictedEngagementLevel'])}")
+    print(f"Recall: {recall_score(val_set[label_column], val_set['PredictedEngagementLevel'])}")
+    print(f"Accuracy: {accuracy_score(val_set[label_column], val_set['PredictedEngagementLevel'])}")
 
-    print('===========================================================================')
-    print('Test:')
-    print(f"F1: {f1_score(test_set[label_column], test_predictions)}")
-    print(f"Precision: {precision_score(test_set[label_column], test_predictions)}")
-    print(f"Recall: {recall_score(test_set[label_column], test_predictions)}")
-    print(f"Accuracy: {accuracy_score(test_set[label_column], test_predictions)}")
+    print('===========================================================================\nTest Metrics:')
+    # Metrics for test set
+    print(f"F1: {f1_score(test_set[label_column], test_set['PredictedEngagementLevel'])}")
+    print(f"Precision: {precision_score(test_set[label_column], test_set['PredictedEngagementLevel'])}")
+    print(f"Recall: {recall_score(test_set[label_column], test_set['PredictedEngagementLevel'])}")
+    print(f"Accuracy: {accuracy_score(test_set[label_column], test_set['PredictedEngagementLevel'])}")
+
+    return train_set, val_set, test_set
 
 def main():
 
@@ -123,9 +131,9 @@ def main():
     base_test_dir = r"C:\Users\idowe\Mind wandering research\Datasets\DAiSEE dataset\DAiSEE\DAiSEE\DataSet\Test"
 
     # new binary labels path
-    binary_train_path = r"C:\Users\idowe\Mind wandering research\Datasets\DAiSEE dataset\DAiSEE\DAiSEE\Labels\binary_labels\binary_train_path.csv"
-    binary_val_path = r"C:\Users\idowe\Mind wandering research\Datasets\DAiSEE dataset\DAiSEE\DAiSEE\Labels\binary_labels\binary_val_path.csv"
-    binary_test_path = r"C:\Users\idowe\Mind wandering research\Datasets\DAiSEE dataset\DAiSEE\DAiSEE\Labels\binary_labels\binary_test_path.csv"
+    binary_train_path = r"C:\Users\idowe\PycharmProjects\MWD\binary_labels\binary_train_path.csv"
+    binary_val_path = r"C:\Users\idowe\PycharmProjects\MWD\binary_labels\binary_val_path.csv"
+    binary_test_path = r"C:\Users\idowe\PycharmProjects\MWD\binary_labels\binary_test_path.csv"
 
     table_arranging(train_original_path, binary_train_path, base_train_dir)
     table_arranging(val_original_path, binary_val_path,base_val_dir)
@@ -141,7 +149,16 @@ def main():
     val_merged_path = r"C:\Users\idowe\Mind wandering research\Datasets\DAiSEE dataset\DAiSEE\DAiSEE\Labels\merged_labels\merged_val.csv"
     test_merged_path = r"C:\Users\idowe\Mind wandering research\Datasets\DAiSEE dataset\DAiSEE\DAiSEE\Labels\merged_labels\merged_test.csv"
 
-    model_trainig_and_evaluation(train_merged_path, val_counter_path, test_counter_path)
+    # Predicting level of engagement based on 4 classifications
+    features_columns = ['Blinking', 'Smiling', 'Head Movement', 'GenerativeTimer']
+    label_column = "EngagementLevel"
+    train_set, val_set, test_set = model_trainig_and_evaluation(train_merged_path, val_counter_path, test_counter_path, features_columns, label_column)
+    predicted_train_path = r"C:\Users\idowe\PycharmProjects\MWD\PredictedCSV\trainPredictedEngageLevel.csv"
+    train_set.to_csv(predicted_train_path, index=False)
+    predicted_val_path = r"C:\Users\idowe\PycharmProjects\MWD\PredictedCSV\valPredictedEngageLevel.csv"
+    val_set.to_csv(predicted_val_path, index=False)
+    predicted_test_path = r"C:\Users\idowe\PycharmProjects\MWD\PredictedCSV\testPredictedEngageLevel.csv"
+    test_set.to_csv(predicted_test_path, index=False)
 
 if __name__ == '__main__':
     main()
