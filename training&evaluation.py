@@ -2,6 +2,7 @@ import xgboost as xgb
 import pandas as pd
 from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score
 import os
+import re
 
 def table_arranging(input_path, binary_path, base_directory):
     "Creating a new binary CSV that include generative timer and specific timer from the last non-engagement"
@@ -12,7 +13,6 @@ def table_arranging(input_path, binary_path, base_directory):
     df["EngagementLevel"] = df.apply(lambda row: 1 if row["Engagement"] - row["NonEngagementSum"] >= 0 else 0, axis=1) # Compare Engagement with NonEngagementSum and define the new engagement level
     df.drop(columns=["NonEngagementSum"], inplace=True) # Drop the intermediate NonEngagementSum column if not needed
     df.to_csv(binary_path, index=False) # Save the modified DataFrame to a new CSV file
-    print(f"Modified table with engagement levels saved to {binary_path}")
 
     # Remove the file extensions from 'ClipID' in the DataFrame
     df['ClipID'] = df['ClipID'].astype(str).str.replace('.mp4', '', regex=False).str.replace('.avi', '', regex=False)
@@ -43,14 +43,11 @@ def table_arranging(input_path, binary_path, base_directory):
 
     # Save the updated CSV after creating generative Timer
     df.to_csv(binary_path, index=False)
-    print(f"Updated CSV after adding Directory name saved to {binary_path}")
 
     # Group by 'Directory' and assign 'Timer' values
-    df['GenerativeTimer'] = df.groupby('Directory').cumcount().add(1).mul(10)
 
     # Save the updated CSV
     df.to_csv(binary_path, index=False)
-    print(f"Updated CSV after GenerativeTimer saved to {binary_path}")
 
     # Create a mask where Label == 1
     mask = df['EngagementLevel'] == 1
@@ -84,20 +81,17 @@ def table_arranging(input_path, binary_path, base_directory):
 
     # Save the updated CSV
     df.to_csv(binary_path, index=False)
-    print(f"Updated CSV saved to {binary_path}")
 
-def model_trainig(train_path, val_path):
-    features_columns = ['Blinking', 'Smiling', 'Head Movement', 'Timer']
-    label_column = "Label"
+def model_trainig_and_evaluation (train_path, val_path, test_path):
+    features_columns = ['Blinking', 'Smiling', 'Head Movement', 'GenerativeTimer']
+    label_column = "EngagementLevel"
 
-    train_set, val_set = pd.read_csv(val_path), pd.read_csv(train_path)
+    train_set, val_set, test_set = pd.read_csv(train_path), pd.read_csv(val_path), pd.read_csv(test_path)
+
     model = xgb.XGBClassifier()
     model.fit(train_set[features_columns], train_set[label_column])
 
-    return model,train_set, val_set, features_columns, label_column
-
-def model_predictions(model, train_set, val_set, features_columns, label_column):
-    train_predictions, val_predictions = model.predict(train_set[features_columns]), model.predict(val_set[features_columns])
+    train_predictions, val_predictions, test_predictions = model.predict(train_set[features_columns]), model.predict(val_set[features_columns]), model.predict(test_set[features_columns])
     print('Train:')
     print(f"F1: {f1_score(train_set[label_column], train_predictions)}")
     print(f"Precision: {precision_score(train_set[label_column], train_predictions)}")
@@ -110,6 +104,13 @@ def model_predictions(model, train_set, val_set, features_columns, label_column)
     print(f"Precision: {precision_score(val_set[label_column], val_predictions)}")
     print(f"Recall: {recall_score(val_set[label_column], val_predictions)}")
     print(f"Accuracy: {accuracy_score(val_set[label_column], val_predictions)}")
+
+    print('===========================================================================')
+    print('Test:')
+    print(f"F1: {f1_score(test_set[label_column], test_predictions)}")
+    print(f"Precision: {precision_score(test_set[label_column], test_predictions)}")
+    print(f"Recall: {recall_score(test_set[label_column], test_predictions)}")
+    print(f"Accuracy: {accuracy_score(test_set[label_column], test_predictions)}")
 
 def main():
 
@@ -130,9 +131,17 @@ def main():
     table_arranging(val_original_path, binary_val_path,base_val_dir)
     table_arranging(test_original_path, binary_test_path, base_test_dir)
 
-    val_counter_path = r"C:\Users\idowe\Mind wandering research\Datasets\DAiSEE dataset\DAiSEE\DAiSEE\ELD\3Lables\ValidationSegment\ValcounterRel.csv"
-    model, train_set, val_set, features_columns, label_column = model_trainig(train_original_path, val_counter_path)
-    model_predictions(model, train_set, val_set, features_columns, label_column)
+    # Counter CSVs that Media Pipe created
+    train_counter_path = r"C:\Users\idowe\Mind wandering research\Datasets\DAiSEE dataset\DAiSEE\DAiSEE\ELD\3Lables\TrainSegment\TrainCounter.csv"
+    val_counter_path = r"C:\Users\idowe\Mind wandering research\Datasets\DAiSEE dataset\DAiSEE\DAiSEE\ELD\3Lables\ValidationSegment\Valcounter.csv"
+    test_counter_path = r"C:\Users\idowe\Mind wandering research\Datasets\DAiSEE dataset\DAiSEE\DAiSEE\ELD\3Lables\TestSegment\TestCounter.csv"
+
+    # Merged CSVs path
+    train_merged_path = r"C:\Users\idowe\Mind wandering research\Datasets\DAiSEE dataset\DAiSEE\DAiSEE\Labels\merged_labels\merged_train.csv"
+    val_merged_path = r"C:\Users\idowe\Mind wandering research\Datasets\DAiSEE dataset\DAiSEE\DAiSEE\Labels\merged_labels\merged_val.csv"
+    test_merged_path = r"C:\Users\idowe\Mind wandering research\Datasets\DAiSEE dataset\DAiSEE\DAiSEE\Labels\merged_labels\merged_test.csv"
+
+    model_trainig_and_evaluation(train_merged_path, val_counter_path, test_counter_path)
 
 if __name__ == '__main__':
     main()
