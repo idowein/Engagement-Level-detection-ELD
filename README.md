@@ -1,3 +1,6 @@
+![MindWanderingDetection logo](https://github.com/user-attachments/assets/edf52519-f136-4023-8941-dd131be02576)
+
+
 This project developed a machine learning model to detect engagement levels, achieving a remarkable 0.9 F1 score in identifying non-engagement. Leveraging Google MediaPipe for feature extraction and XGBoost for model training on the DAiSEE dataset, the system accurately classified engagement states, demonstrating the effectiveness of this approach for real-time engagement analysis.
 
 example of feature extractions:
